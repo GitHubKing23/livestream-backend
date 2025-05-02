@@ -2,8 +2,9 @@
 // A zero-cost, self-hosted livestream backend with Ethereum (MetaMask) authentication,
 // session logging, health & metrics, and admin tools for user CRUD & key revocation
 
-// Load environment variables
-require('dotenv').config();
+// Load environment variables from .env in project root
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // Dependencies
 const express = require('express');
