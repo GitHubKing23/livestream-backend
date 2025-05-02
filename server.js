@@ -30,13 +30,7 @@ mongoose.connect(MONGO_URI)
 const app = express();
 app.use(bodyParser.json());
 
-// DEBUG: log admin header vs env on admin routes
-app.use((req, res, next) => {
-  if (req.path.startsWith('/admin')) {
-    console.log('→ Admin request header:', req.header('X-Admin-Secret'), 'ENV ADMIN_SECRET:', ADMIN_SECRET);
-  }
-  next();
-});
+
 
 // 3. Define schemas
 const userSchema = new mongoose.Schema({
