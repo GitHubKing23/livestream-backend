@@ -4,6 +4,8 @@
 
 // Load environment variables
 require('dotenv').config();
+// DEBUG: log ADMIN_SECRET on startup
+console.log('→ ADMIN_SECRET is:', process.env.ADMIN_SECRET);
 
 // Dependencies
 const express = require('express');
@@ -172,25 +174,21 @@ app.listen(EXPRESS_PORT, () => {
 
 // 14. Node-Media-Server config
 const nmsConfig = {
-  rtmp: {
-    port: 1935, chunk_size: 60000, gop_cache: true,
-    ping: 30, ping_timeout: 60
-  },
-  http: { port: 8000, allow_origin: '*' },
-  trans: { ffmpeg: '/usr/bin/ffmpeg', tasks: [{ app: 'live', hls: true, hlsFlags: '[hls_time=2:hls_list_size=3:hls_flags=delete_segments]', dash: false }] }
+  rtmp:   { port: 1935, chunk_size: 60000, gop_cache: true, ping: 30, ping_timeout: 60 },
+  http:   { port: 8000, allow_origin: '*' },
+  trans:  { ffmpeg: '/usr/bin/ffmpeg', tasks: [{ app: 'live', hls: true, hlsFlags: '[hls_time=2:hls_list_size=3:hls_flags=delete_segments]', dash: false }] }
 };
 
 // 15. Instantiate & secure Node-Media-Server
 const nms = new NodeMediaServer(nmsConfig);
 nms.on('prePublish', async (id, StreamPath) => {
   const session = nms.getSession(id);
-  const key = StreamPath.split('/')[2];
-  const user = await User.findOne({ streamKey: key });
+  const key     = StreamPath.split('/')[2];
+  const user    = await User.findOne({ streamKey: key });
   if (!user || user.disabled) {
     console.warn(`🔒 Rejecting publish for key ${key}`);
     return session.reject();
   }
-  // Log session start
   const streamSession = new StreamSession({ user: user._id, streamKey: key });
   await streamSession.save();
   session.streamSessionId = streamSession._id;
