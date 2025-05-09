@@ -30,7 +30,18 @@ mongoose.connect(MONGO_URI)
 const app = express();
 app.use(bodyParser.json());
 
-
+// ── ADD CORS MIDDLEWARE ──────────────────────────────────────────
+const cors = require('cors');
+app.use(cors({
+  origin: [
+    'http://localhost:3000',          // for local dev
+    'https://sportifyinsider.com',    // your production site
+    'https://api.sportifyinsider.com' // direct API calls
+  ],
+  methods: 'GET,POST,OPTIONS,DELETE',
+  allowedHeaders: 'Content-Type,Authorization',
+}));
+// ─────────────────────────────────────────────────────────────────
 
 // 3. Define schemas
 const userSchema = new mongoose.Schema({
@@ -171,8 +182,39 @@ app.listen(EXPRESS_PORT, () => {
 });
 
 // 13. Node-Media-Server config & instantiation
-const nmsConfig = { rtmp: { port: 1935, chunk_size: 60000, gop_cache: true, ping: 30, ping_timeout: 60 }, http: { port: 8000, allow_origin: '*' }, trans: { ffmpeg: '/usr/bin/ffmpeg', tasks: [{ app: 'live', hls: true, hlsFlags: '[hls_time=2:hls_list_size=3:hls_flags=delete_segments]', dash: false }] } };
+const nmsConfig = {
+  rtmp:  { port: 1935, chunk_size: 60000, gop_cache: true, ping: 30, ping_timeout: 60 },
+  http:  { port: 8000, allow_origin: '*' },
+  trans: {
+    ffmpeg: '/usr/bin/ffmpeg',
+    tasks: [
+      {
+        app: 'live',
+        hls: true,
+        hlsFlags: '[hls_time=2:hls_list_size=3:hls_flags=delete_segments]',
+        dash: false
+      }
+    ]
+  }
+};
 const nms = new NodeMediaServer(nmsConfig);
-nms.on('prePublish', async (id, StreamPath) => { const session = nms.getSession(id); const key = StreamPath.split('/')[2]; const user = await User.findOne({ streamKey: key }); if (!user || user.disabled) { console.warn(`🔒 Rejecting publish for key ${key}`); return session.reject(); } const streamSession = new StreamSession({ user: user._id, streamKey: key }); await streamSession.save(); session.streamSessionId = streamSession._id; });
-nms.on('donePublish', async (id) => { const session = nms.getSession(id); if (session && session.streamSessionId) { await StreamSession.findByIdAndUpdate(session.streamSessionId, { endedAt: new Date() }); console.log(`🛑 Stream session ${session.streamSessionId} ended`); } });
+nms.on('prePublish', async (id, StreamPath) => {
+  const session = nms.getSession(id);
+  const key = StreamPath.split('/')[2];
+  const user = await User.findOne({ streamKey: key });
+  if (!user || user.disabled) {
+    console.warn(`🔒 Rejecting publish for key ${key}`);
+    return session.reject();
+  }
+  const streamSession = new StreamSession({ user: user._id, streamKey: key });
+  await streamSession.save();
+  session.streamSessionId = streamSession._id;
+});
+nms.on('donePublish', async (id) => {
+  const session = nms.getSession(id);
+  if (session && session.streamSessionId) {
+    await StreamSession.findByIdAndUpdate(session.streamSessionId, { endedAt: new Date() });
+    console.log(`🛑 Stream session ${session.streamSessionId} ended`);
+  }
+});
 nms.run();
